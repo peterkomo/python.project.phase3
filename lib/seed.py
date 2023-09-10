@@ -16,6 +16,7 @@ class User(Base):
 
     # Establish a one-to-many relationship with Shopping_Cart
     cart_items = relationship('Shopping_Cart', back_populates='user')
+    orders = relationship('Order', back_populates='user')
 
 class Product(Base):
     __tablename__ = 'products'
@@ -40,6 +41,8 @@ class Shopping_Cart(Base):
 
     user = relationship("User", back_populates="cart_items")
     product = relationship("Product", back_populates="cart_entries")
+    order_id = Column(Integer, ForeignKey('orders.id'))  # Add a foreign key reference to Order
+    order = relationship("Order", back_populates="cart_entries")
 
 class PickupPoint(Base):
     __tablename__ = 'pickup_points'
@@ -47,6 +50,15 @@ class PickupPoint(Base):
     name = Column(String(100))
     address = Column(String(200))
     contact = Column(String(100))
+
+class Order(Base):
+    __tablename__ = 'orders'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'))
+    delivery_location = Column(String(200))  # Add a column for delivery location
+
+    user = relationship("User", back_populates="orders")
+    cart_entries = relationship("Shopping_Cart", back_populates="order")
 
 engine = create_engine('sqlite:///trial.db')
 Base.metadata.create_all(engine)
@@ -130,14 +142,17 @@ def view_shopping_cart(user):
 
         place_order_option = input("Do you want to place an order? (yes/no): ").strip().lower()
         if place_order_option == "yes":
-            place_order(user, total_cost)
+            delivery_location = input("Enter the delivery location: ")
+            place_order(user, total_cost, delivery_location)
         else:
             print("Order not placed. Returning to the main menu.")
 
-def place_order(user, total_cost):
+def place_order(user, total_cost, delivery_location):
     till_number = "12458"
     print(f"Order placed successfully! Your till number is: {till_number}")
     clear_shopping_cart(user)
+    print(f"Your order will be delivered to: {delivery_location}")
+    print("Thanks for shopping with us!")
 
 def clear_shopping_cart(user):
     session.query(Shopping_Cart).filter_by(user_id=user.user_id).delete()
