@@ -1,45 +1,51 @@
-from sqlalchemy import  String, Column, Integer , create_engine
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'users'
+    user_id = Column(Integer, primary_key=True)
+    user_first_name = Column(String(50))
+    user_second_name = Column(String(50))
+    user_surname = Column(String(50))
+    user_email = Column(String(100), unique=True)
+    role = Column(String(20), default='customer')
+    unique_code = Column(String(10))
+
+    # Establish a one-to-many relationship with Shopping_Cart
+    cart_items = relationship('Shopping_Cart', back_populates='user')
+
+
+class Product(Base):
+    __tablename__ = 'products'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    quantity = Column(Integer)
+
+    cart_entries = relationship("Shopping_Cart", back_populates="product")
+
+class Shopping_Cart(Base):
+    __tablename__ = 'shopping_cart'
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'))
+    user_id = Column(Integer, ForeignKey('users.user_id'))
+    quantity = Column(Integer)
+    pickup_point = Column(String(50))
+
+    # Establish relationships with User and Product
+    user_id = Column(Integer, ForeignKey('users.user_id'))
+    user = relationship("User", back_populates="cart_items")
+
+    product_id = Column(Integer, ForeignKey('products.id'))
+    product = relationship("Product", back_populates="cart_entries")
+
+
 
 engine = create_engine('sqlite:///glossaries.db')
 Session = sessionmaker(bind=engine)
 session = Session()
-Base = declarative_base()
-
-# creation of tables
-class User(Base):
-    _tablename_ = 'users'
-
-    user_id= Column(Integer, primary_key= True)
-    first_name = Column(String(15))
-    second_name = Column(String(10))
-    surname = Column(String(10))
-    email = Column(String(10))
-    
-
-class Product (Base):
-    _tablename_ = 'products'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    quantity = Column(String)  
-
-
-class Shopping_Cart(Base):
-    _tablename_ = 'bought'
-    
-    id = Column(Integer, primary_key=True)
-    product_name = Column(String)
-    user_id = Column(String)
-    quantity = Column(String)
-    pickup_point=Column(String)
-
-
-
 
 Base.metadata.create_all(engine)
-
-Session = sessionmaker(bind=engine)
-session = Session()
-
