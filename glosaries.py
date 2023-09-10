@@ -33,7 +33,7 @@ class Shopping_Cart(Base):
     product_id = Column(Integer, ForeignKey('products.id'))
     user_id = Column(Integer, ForeignKey('users.user_id'))
     quantity = Column(Integer)
-    pickup_point = Column(String(50))
+    
 
     # Establish relationships with User and Product
     user_id = Column(Integer, ForeignKey('users.user_id'))
@@ -41,6 +41,23 @@ class Shopping_Cart(Base):
 
     product_id = Column(Integer, ForeignKey('products.id'))
     product = relationship("Product", back_populates="cart_entries")
+
+    pickup_location_id = Column(Integer, ForeignKey('pickup_locations.id'))
+    pickup_location = relationship("PickupLocation", back_populates="cart_entries")
+
+
+class PickupLocation(Base):
+    __tablename__ = 'pickup_locations'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+    address = Column(String(100))
+
+    # Relationship to Shopping_Cart
+    cart_entries = relationship("Shopping_Cart", back_populates="pickup_location")
+
+    # Other columns and methods...
+
+
 
 
 

@@ -1,4 +1,4 @@
-from glosaries import User, Product, Shopping_Cart
+from glosaries import User, Product, Shopping_Cart, PickupLocation
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -71,7 +71,6 @@ def delete_user(user_id):
     else:
         print(f"User with ID {user_id} not found.")
 
-
 def create_product():
     # Prompt users to enter product details
     print("Please add product details:")
@@ -84,6 +83,7 @@ def create_product():
     session.commit()
 
     print(f"Product {product_name} with quantity {product_quantity} has been created.")
+
 
 
 def read_product(product_id):
@@ -126,19 +126,32 @@ def delete_product(product_id):
 
 
 def create_shopping_cart():
-    # Prompt users to enter shopping cart details
     print("Please add shopping cart details:")
     product_name = input("Product Name: ")
     user_id = int(input("User ID: "))
     quantity = int(input("Quantity: "))
-    pickup_point = input("Pickup Point: ")
+    pickup_location=input("pick up point: ")
 
-    # Create and add a new shopping cart entry to the database
-    new_cart_entry = Shopping_Cart(product_name=product_name, user_id=user_id, quantity=quantity, pickup_point=pickup_point)
+    # Add code to select a pickup location or create a new one if needed
+    pickup_location_name = input("Pickup Location: ")
+
+    # Check if the pickup location already exists
+    pickup_location = session.query(PickupLocation).filter_by(name=pickup_location_name).first()
+    if not pickup_location:
+        pickup_location = PickupLocation(name=pickup_location_name)
+        session.add(pickup_location)
+
+    new_cart_entry = Shopping_Cart(
+        product_name=product_name,
+        user_id=user_id,
+        quantity=quantity,
+        pickup_location=pickup_location
+    )
+
     session.add(new_cart_entry)
     session.commit()
-
     print(f"Shopping cart entry for Product {product_name}, User ID {user_id} with quantity {quantity} has been created.")
+
 
 
 def read_shopping_cart(cart_id):
@@ -246,26 +259,63 @@ def browse_products(user):
     for product in products:
         print(f"ID: {product['id']}, Name: {product['name']}, Quantity: {product['quantity']}")
 
-    product_id = input("Enter the ID of the product you want to add to your cart (0 to exit): ")
+    while True:
+        product_id = input("Enter the ID of the product you want to add to your cart (0 to exit): ")
 
-    if product_id == "0":
-        return
-    else:
-        product = next((p for p in products if p["id"] == int(product_id)), None)
+        if product_id == "0":
+            return
+        elif not product_id.isdigit():
+            print("Invalid input. Please enter a valid product ID.")
+            continue
+
+        product_id = int(product_id)
+
+        product = next((p for p in products if p["id"] == product_id), None)
         if product:
-            quantity = int(input("Enter the quantity: "))
-            if quantity <= product["quantity"]:
-                add_to_shopping_cart(user, product, quantity)
-            else:
-                print("Insufficient quantity available.")
+            while True:
+                quantity = input("Enter the quantity: ")
+
+                if not quantity.isdigit():
+                    print("Invalid input. Please enter a valid quantity.")
+                    continue
+
+                quantity = int(quantity)
+
+                if quantity <= 0:
+                    print("Quantity must be greater than 0.")
+                elif quantity > product["quantity"]:
+                    print("Insufficient quantity available.")
+                else:
+                    custom_location_name = input("Enter your custom Pickup Location Name: ")
+                    custom_location_address = input("Enter your custom Pickup Location Address: ")
+                    
+                    pickup_location = session.query(PickupLocation).filter_by(name=custom_location_name).first()
+                    if not pickup_location:
+                        pickup_location = PickupLocation(name=custom_location_name, address=custom_location_address)
+                        session.add(pickup_location)
+                        session.commit()
+
+                    pickup_location_id = pickup_location.id
+
+                    add_to_shopping_cart(user, product, quantity, pickup_location_id)
+                    print(f"{quantity} {product['name']} added to your shopping cart.")
+                    break
         else:
             print("Product not found.")
 
-def add_to_shopping_cart(user, product, quantity):
-    new_cart_entry = Shopping_Cart(product_id=product["id"], user_id=user.user_id, quantity=quantity, pickup_point=user.user_email)
+
+def add_to_shopping_cart(user, product, quantity, pickup_location_id):
+    new_cart_entry = Shopping_Cart(
+        product_id=product["id"],
+        user_id=user.user_id,
+        quantity=quantity,
+        pickup_location_id=pickup_location_id  # Use pickup_location_id
+    )
     session.add(new_cart_entry)
     session.commit()
     print(f"{quantity} {product['name']} added to your shopping cart.")
+
+
 
 
 
@@ -280,7 +330,8 @@ def view_shopping_cart(user):
     total_cost = 0
 
     for entry in cart_entries:
-        product = entry.product  # Access the associated Product object through the relationship
+        # Retrieve the associated product using the product_id
+        product = session.query(Product).filter_by(id=entry.product_id).first()
         if product:
             cost = product.quantity * entry.quantity
             print(f"Product: {product.name}, Quantity: {entry.quantity}, Cost: {cost}")
@@ -289,6 +340,7 @@ def view_shopping_cart(user):
             print(f"Product for this entry not found in the product list. Please remove it from your cart.")
 
     print(f"Total Cost: {total_cost}")
+
 
 
 
