@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Float  # Import Float for price
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -23,6 +23,11 @@ class Product(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(50))
     quantity = Column(Integer)
+    price = Column(Float)  # Add a price column for each product
+
+    # Add a foreign key reference to PickupPoint
+    pickup_point_id = Column(Integer, ForeignKey('pickup_points.id'))
+    pickup_point = relationship("PickupPoint")
 
     cart_entries = relationship("Shopping_Cart", back_populates="product")
 
@@ -37,6 +42,14 @@ class Shopping_Cart(Base):
     user = relationship("User", back_populates="cart_items")
     product = relationship("Product", back_populates="cart_entries")
 
+class PickupPoint(Base):
+    __tablename__ = 'pickup_points'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100))
+    address = Column(String(200))
+    contact = Column(String(100))
+
+# Create the SQLite database engine and tables
 engine = create_engine('sqlite:///trial.db')
 Base.metadata.create_all(engine)
 
@@ -65,33 +78,60 @@ def create_product():
     print("Please add product details:")
     product_name = input("Product Name: ")
     product_quantity = int(input("Product Quantity: "))
+    product_price = float(input("Product Price: "))  # Prompt for the price
 
-    new_product = Product(name=product_name, quantity=product_quantity)
+    new_product = Product(name=product_name, quantity=product_quantity, price=product_price)  # Include the price
     session.add(new_product)
     session.commit()
 
-    print(f"Product {product_name} with quantity {product_quantity} has been created.")
+    print(f"Product {product_name} with quantity {product_quantity} and price ${product_price:.2f} has been created.")
+
+def add_dummy_products():
+    store_a = PickupPoint(name="Store A", address="123 Main St", contact="Phone: (123) 456-7890")
+    store_b = PickupPoint(name="Store B", address="456 Elm St", contact="Phone: (987) 654-3210")
+    # Add more pickup points as needed
+
+    dummy_products = [
+        {"name": "Apple", "quantity": 100, "price": 1.00, "pickup_point": store_a},
+        {"name": "Banana", "quantity": 50, "price": 0.75, "pickup_point": store_b},
+        {"name": "Orange", "quantity": 75, "price": 1.25, "pickup_point": store_a},
+        # Add more dummy products as needed
+    ]
+
+    for product_info in dummy_products:
+        product = Product(name=product_info["name"], quantity=product_info["quantity"], price=product_info["price"], pickup_point=product_info["pickup_point"])
+        session.add(product)
+
+    session.commit()
+
+def add_dummy_pickup_points():
+    dummy_pickup_points = [
+        {"name": "Store A", "address": "123 Main St", "contact": "Phone: (123) 456-7890"},
+        {"name": "Store B", "address": "456 Elm St", "contact": "Phone: (987) 654-3210"},
+        # Add more dummy pickup points as needed
+    ]
+
+    for point_info in dummy_pickup_points:
+        pickup_point = PickupPoint(name=point_info["name"], address=point_info["address"], contact=point_info["contact"])
+        session.add(pickup_point)
+
+    session.commit()
 
 def view_shopping_cart(user):
-    print("\nYour Shopping Cart:")
+    print(f"Shopping Cart for {user.user_first_name} {user.user_surname}:")
     cart_entries = session.query(Shopping_Cart).filter_by(user_id=user.user_id).all()
 
     if not cart_entries:
         print("Your shopping cart is empty.")
-        return
+    else:
+        total_cost = 0
+        for cart_entry in cart_entries:
+            product = cart_entry.product
+            subtotal = cart_entry.quantity * product.price  # Calculate cost based on product price
+            total_cost += subtotal
+            print(f"Product: {product.name}, Quantity: {cart_entry.quantity}, Subtotal: ${subtotal:.2f}")
 
-    total_cost = 0
-
-    for entry in cart_entries:
-        product = session.query(Product).filter_by(id=entry.product_id).first()
-        if product:
-            cost = product.quantity * entry.quantity
-            print(f"Product: {product.name}, Quantity: {entry.quantity}, Cost: {cost}")
-            total_cost += cost
-        else:
-            print(f"Product for this entry not found in the product list. Please remove it from your cart.")
-
-    print(f"Total Cost: {total_cost}")
+        print(f"Total Cost: ${total_cost:.2f}")
 
 def main():
     print("Welcome to Uncle Pete's groceries system")
@@ -141,7 +181,7 @@ def browse_products(user):
         return
 
     for product in products:
-        print(f"ID: {product.id}, Name: {product.name}, Quantity: {product.quantity}")
+        print(f"ID: {product.id}, Name: {product.name}, Quantity: {product.quantity}, Price: ${product.price:.2f}, Pick-up Point: {product.pickup_point.name}")
 
     while True:
         product_id = input("Enter the ID of the product you want to add to your cart (0 to exit): ")
@@ -188,4 +228,9 @@ def add_to_shopping_cart(user, product, quantity):
     session.commit()
 
 if __name__ == "__main__":
+    # Create dummy pickup points and products
+    add_dummy_pickup_points()
+    add_dummy_products()
+
+    # Start the main program
     main()
